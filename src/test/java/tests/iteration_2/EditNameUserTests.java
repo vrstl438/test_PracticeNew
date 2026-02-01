@@ -1,31 +1,40 @@
 package tests.iteration_2;
 
-import api.client.AdminApiClient;
-import api.client.UserApiClient;
-import assertions.UserAssertions;
-import assertions.UserErrorAssertions;
+import api.specs.RequestSpecs;
+import api.specs.ResponseSpecs;
+import context.ScenarioContext;
 import domain.builders.CreateUserRequestBuilder;
 import domain.generators.NameGenerator;
+import domain.model.comparison.ModelAssertions;
 import domain.model.requests.EditNameRequest;
 import domain.model.requests.UserRequest;
 import domain.model.response.EditUserResponse;
-import domain.model.response.UserResponse;
+import domain.model.response.ProfileInfoResponse;
 import io.restassured.response.Response;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import requests.skelethon.Endpoint;
+import requests.skelethon.requesters.CrudRequester;
+import requests.skelethon.requesters.ValidatedCrudRequester;
 
 import java.util.stream.Stream;
 
 public class EditNameUserTests {
-    private AdminApiClient adminApiClient = new AdminApiClient();
-    private UserApiClient userApiClient = new UserApiClient();
+    private ScenarioContext context = new ScenarioContext();
 
     @BeforeEach
     void preSet() {
         UserRequest userRequest = new CreateUserRequestBuilder().userBuild();
-        UserResponse userResponse = adminApiClient.createUser(userRequest, 201);
+        Response createUserResponse = new CrudRequester(
+                RequestSpecs.adminAuthSpec(),
+                Endpoint.ADMIN_USER,
+                ResponseSpecs.created()
+        ).post(userRequest).extract().response();
+        context.setUserTokenFromResponse(createUserResponse);
     }
 
     @DisplayName("Валидный формат имени")
@@ -34,11 +43,21 @@ public class EditNameUserTests {
         EditNameRequest editNameRequest = new EditNameRequest()
                 .setName(name);
 
-        Response response = userApiClient.editName(editNameRequest, adminApiClient.getUserToken(), 200);
+        EditUserResponse editingResponse = new ValidatedCrudRequester<EditUserResponse>(
+                RequestSpecs.userAuthSpec(context.getUserToken()),
+                Endpoint.EDIT_PROFILE,
+                ResponseSpecs.ok()
+        ).put(editNameRequest);
 
-        EditUserResponse editingResponse = response.as(EditUserResponse.class);
+        ModelAssertions.assertEditUserResponse(editingResponse, editNameRequest);
 
-        UserAssertions.assertEditUserResponse(editingResponse, editNameRequest);
+        //проверка что имя поменялось
+        ProfileInfoResponse profileInfo = new ValidatedCrudRequester<ProfileInfoResponse>(
+                RequestSpecs.userAuthSpec(context.getUserToken()),
+                Endpoint.PROFILE_INFO,
+                ResponseSpecs.ok()
+        ).get();
+        assertThat(profileInfo.getName()).isEqualTo(name);
     }
 
     @DisplayName("Невалидный формат имени")
@@ -47,9 +66,28 @@ public class EditNameUserTests {
         EditNameRequest editNameRequest = new EditNameRequest()
                 .setName(name);
 
-        Response response = userApiClient.editName(editNameRequest, adminApiClient.getUserToken(), 400);
+        //запоминаем имя до попытки изменения
+        ProfileInfoResponse profileBefore = new ValidatedCrudRequester<ProfileInfoResponse>(
+                RequestSpecs.userAuthSpec(context.getUserToken()),
+                Endpoint.PROFILE_INFO,
+                ResponseSpecs.ok()
+        ).get();
 
-        UserErrorAssertions.assertPlainErrorMessage(response, "Name must contain two words with letters only");
+        Response response = new CrudRequester(
+                RequestSpecs.userAuthSpec(context.getUserToken()),
+                Endpoint.EDIT_PROFILE,
+                ResponseSpecs.badRequest()
+        ).put(editNameRequest).extract().response();
+
+        ModelAssertions.assertPlainErrorMessage(response, ResponseSpecs.INVALID_NAME_FORMAT);
+
+        //проверка что имя не поменялось
+        ProfileInfoResponse profileAfter = new ValidatedCrudRequester<ProfileInfoResponse>(
+                RequestSpecs.userAuthSpec(context.getUserToken()),
+                Endpoint.PROFILE_INFO,
+                ResponseSpecs.ok()
+        ).get();
+        assertThat(profileAfter.getName()).isEqualTo(null);
     }
 
 

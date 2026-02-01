@@ -1,5 +1,6 @@
 package domain.model.response;
 
+import domain.model.ResponseModel;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,7 +10,7 @@ import java.util.List;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class AccountResponse {
+public class AccountResponse implements ResponseModel {
     private Long id;
     private String accountNumber;
     private Double balance;

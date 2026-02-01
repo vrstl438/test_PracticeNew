@@ -8,6 +8,8 @@ import domain.model.requests.UserRequest;
 import domain.model.response.*;
 import domain.model.response.AccountResponse.Transaction;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class UserAssertions {
@@ -61,5 +63,14 @@ public class UserAssertions {
         assertThat(response.getCustomer().getName()).isEqualTo(request.getName());
         assertThat(response.getCustomer().getRole()).isNotNull().isEqualTo(Role.USER);
         assertThat(response.getCustomer().getAccounts()).isNotNull();
+    }
+
+    public static void assertTransactions(List<Transaction> transactions, int expectedSize, Double expectedTotalAmount) {
+        assertThat(transactions).hasSize(expectedSize);
+
+        Double totalAmount = transactions.stream()
+                .mapToDouble(Transaction::getAmount)
+                .sum();
+        assertThat(totalAmount).isCloseTo(expectedTotalAmount, org.assertj.core.data.Offset.offset(0.01));
     }
 }

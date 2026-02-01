@@ -7,6 +7,18 @@ import io.restassured.specification.ResponseSpecification;
 
 public class ResponseSpecs {
 
+    public static ResponseSpecification ok() {
+        return expectedStatusCode(200);
+    }
+
+    public static ResponseSpecification created() {
+        return expectedStatusCode(201);
+    }
+
+    public static ResponseSpecification badRequest() {
+        return expectedStatusCode(400);
+    }
+
     public static ResponseSpecification expectedStatusCode(int expectedStatusCode){
         if (expectedStatusCode >= 200 && expectedStatusCode < 300){
             return successStatusCode(expectedStatusCode);

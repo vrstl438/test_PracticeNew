@@ -1,12 +1,13 @@
 package domain.model.requests;
 
+import domain.model.RequestModel;
+import domain.model.Role;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import domain.model.Role;
 
 @Getter
 @AllArgsConstructor
-public class UserRequest {
+public class UserRequest implements RequestModel {
     private final String username;
     private final String password;
     private final Role role;

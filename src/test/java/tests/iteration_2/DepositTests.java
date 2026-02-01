@@ -1,40 +1,51 @@
 package tests.iteration_2;
 
-import api.client.AdminApiClient;
-import api.client.UserApiClient;
+import api.specs.RequestSpecs;
+import api.specs.ResponseSpecs;
 import assertions.UserAssertions;
 import assertions.UserErrorAssertions;
+import context.ScenarioContext;
 import domain.builders.CreateDepositRequestBuilder;
 import domain.builders.CreateUserRequestBuilder;
 import domain.model.requests.DepositRequest;
 import domain.model.requests.UserRequest;
-import domain.model.response.DepositResponse;
-import domain.model.response.UserResponse;
 import domain.model.response.AccountResponse;
+import domain.model.response.AccountResponse.Transaction;
+import domain.model.response.DepositResponse;
+
+import java.util.List;
 import io.restassured.response.Response;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import requests.skelethon.Endpoint;
+import requests.skelethon.requesters.CrudRequester;
+import requests.skelethon.requesters.ValidatedCrudRequester;
 
 public class DepositTests {
-    private AdminApiClient adminApiClient = new AdminApiClient();
-    private UserApiClient userApiClient = new UserApiClient();
+    private ScenarioContext context = new ScenarioContext();
     private AccountResponse accountResponse;
 
     @BeforeEach
     void setUp(){
         //создание модельки пользователя
         UserRequest userRequest = new CreateUserRequestBuilder().userBuild();
-        //отправка запроса на создание юзера
-        UserResponse userResponse = adminApiClient.createUser(userRequest, 201);
-        //проверка результата, через кастомный ассерт
-//        UserAssertions.assertUserCreated(userResponse, userRequest);
+        //отправка запроса на создание юзера и сохранение токена в контекст
+        Response createUserResponse = new CrudRequester(
+                RequestSpecs.adminAuthSpec(),
+                Endpoint.ADMIN_USER,
+                ResponseSpecs.created()
+        ).post(userRequest).extract().response();
+        context.setUserTokenFromResponse(createUserResponse);
 
         //создаем аккаунт от имени только что созданного юзера
-        Response response = userApiClient.createAccount(adminApiClient.getUserToken(), 201);
-        accountResponse = response.as(AccountResponse.class);
+        accountResponse = new ValidatedCrudRequester<AccountResponse>(
+                RequestSpecs.userAuthSpec(context.getUserToken()),
+                Endpoint.ACCOUNTS,
+                ResponseSpecs.created()
+        ).post();
     }
 
 
@@ -45,10 +56,22 @@ public class DepositTests {
         //создаем депозит модельку
         DepositRequest depositRequest = new CreateDepositRequestBuilder().withId(accountResponse.getId()).withBalance(amountDeposit).depositBuild();
         //отправляем наш созданный депозит
-        Response response = userApiClient.createDeposit(depositRequest, adminApiClient.getUserToken(), 200);
-        DepositResponse depositResponse = response.as(DepositResponse.class);
+        DepositResponse depositResponse = new ValidatedCrudRequester<DepositResponse>(
+                RequestSpecs.userAuthSpec(context.getUserToken()),
+                Endpoint.DEPOSIT,
+                ResponseSpecs.ok()
+        ).post(depositRequest);
         //проверка депозита
         UserAssertions.assertDepositCreated(depositResponse, depositRequest);
+
+        //проверка транзакций через гет
+        List<Transaction> transactions = new CrudRequester(
+                RequestSpecs.userAuthSpec(context.getUserToken()),
+                Endpoint.TRANSACTIONS_INFO,
+                ResponseSpecs.ok()
+        ).get(accountResponse.getId() + "/transactions").extract().jsonPath().getList("", Transaction.class);
+
+        UserAssertions.assertTransactions(transactions, 1, amountDeposit);
     }
 
 
@@ -61,8 +84,21 @@ public class DepositTests {
                 .withBalance(amountDeposit)
                 .depositBuild();
         //отправка депозита
-        Response response = userApiClient.createDeposit(depositRequest, adminApiClient.getUserToken(), 400);
+        Response response = new CrudRequester(
+                RequestSpecs.userAuthSpec(context.getUserToken()),
+                Endpoint.DEPOSIT,
+                ResponseSpecs.badRequest()
+        ).post(depositRequest).extract().response();
         UserErrorAssertions.assertPlainErrorMessage(response, "Deposit amount must be at least 0.01");
+
+        //проверка что транзакция не создалась
+        List<Transaction> transactions = new CrudRequester(
+                RequestSpecs.userAuthSpec(context.getUserToken()),
+                Endpoint.TRANSACTIONS_INFO,
+                ResponseSpecs.ok()
+        ).get(accountResponse.getId() + "/transactions").extract().jsonPath().getList("", Transaction.class);
+
+        UserAssertions.assertTransactions(transactions, 0, 0.0);
     }
 
     @DisplayName("Попытка депозита с суммой превышающей допустимую сумму")
@@ -73,8 +109,21 @@ public class DepositTests {
                 .withBalance(amountDeposit)
                 .depositBuild();
 
-        Response response = userApiClient.createDeposit(depositRequest, adminApiClient.getUserToken(), 400);
+        Response response = new CrudRequester(
+                RequestSpecs.userAuthSpec(context.getUserToken()),
+                Endpoint.DEPOSIT,
+                ResponseSpecs.badRequest()
+        ).post(depositRequest).extract().response();
         UserErrorAssertions.assertPlainErrorMessage(response, "Deposit amount cannot exceed 5000");
+
+        //проверка что транзакция не создалась
+        List<Transaction> transactions = new CrudRequester(
+                RequestSpecs.userAuthSpec(context.getUserToken()),
+                Endpoint.TRANSACTIONS_INFO,
+                ResponseSpecs.ok()
+        ).get(accountResponse.getId() + "/transactions").extract().jsonPath().getList("", Transaction.class);
+
+        UserAssertions.assertTransactions(transactions, 0, 0.0);
     }
 
     @DisplayName("Проверка расчета баланса, при сразу нескольких депозитах")
@@ -91,11 +140,24 @@ public class DepositTests {
 
         Double totalAmountBalance = depositRequest1.getBalance() + depositRequest2.getBalance();
 
-        Response response1 = userApiClient.createDeposit(depositRequest1, adminApiClient.getUserToken(), 200);
-        Response response2 = userApiClient.createDeposit(depositRequest2, adminApiClient.getUserToken(), 200);
+        ValidatedCrudRequester<DepositResponse> depositRequester = new ValidatedCrudRequester<>(
+                RequestSpecs.userAuthSpec(context.getUserToken()),
+                Endpoint.DEPOSIT,
+                ResponseSpecs.ok()
+        );
+        depositRequester.post(depositRequest1);
+        DepositResponse lastDepositResponse = depositRequester.post(depositRequest2);
 
-        DepositResponse lastDepositResponse = response2.as(DepositResponse.class);
-
+        //проверка баланса
         assert totalAmountBalance.equals(lastDepositResponse.getBalance());
+
+        //проверка что транзакции зачислены через гет
+        List<Transaction> transactions = new CrudRequester(
+                RequestSpecs.userAuthSpec(context.getUserToken()),
+                Endpoint.TRANSACTIONS_INFO,
+                ResponseSpecs.ok()
+        ).get(accountResponse.getId() + "/transactions").extract().jsonPath().getList("", Transaction.class);
+
+        UserAssertions.assertTransactions(transactions, 2, totalAmountBalance);
     }
 }

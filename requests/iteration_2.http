@@ -1,0 +1,118 @@
+POST http://localhost:4111/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "admin"
+}
+
+### Create new users
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Authorization: Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "iWGsqEJVp",
+  "password": "Vn8&js!%2!&t",
+  "role": "USER"
+}
+
+### login at created user
+POST http://localhost:4111/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "username": "petya",
+  "password": "petya!A1"
+}
+
+###create acc at user
+POST http://localhost:4111/api/v1/accounts
+Content-Type: application/json
+Authorization: Basic cGV0eWE6cGV0eWEhQTE=
+
+
+### Deposit money
+POST http://localhost:4111/api/v1/accounts/deposit
+Content-Type: application/json
+Authorization: Basic cGV0eWE6cGV0eWEhQTE=
+
+{
+  "id": 8,
+  "balance": 4999
+}
+
+### Transfer money
+POST http://localhost:4111/api/v1/accounts/transfer
+Content-Type: application/json
+Authorization: Basic cGV0eWE6cGV0eWEhQTE=
+
+{
+  "senderAccountId": 8,
+  "receiverAccountId": 9,
+  "amount": 111
+}
+
+### Transfer money INFO
+GET http://localhost:4111/api/v1/accounts/7/transactions
+Content-Type: application/json
+Authorization: Basic cGV0eWE6cGV0eWEhQTE=
+
+
+
+
+
+###two
+POST http://localhost:4111/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "username": "ilya12",
+  "password": "!useR7111"
+}
+
+### Create new users
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Authorization: Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "ilya12",
+  "password": "!useR7111",
+  "role": "USER"
+}
+
+###create acc at user
+POST http://localhost:4111/api/v1/accounts
+Content-Type: application/json
+Authorization: Basic aWx5YTohdXNlUjcxMTE=
+
+### Deposit money
+POST http://localhost:4111/api/v1/accounts/deposit
+Content-Type: application/json
+Authorization: Basic aWx5YTEyOiF1c2VSNzExMQ==
+
+{
+  "id": 7,
+  "balance": 500
+}
+
+### Transfer money
+POST http://localhost:4111/api/v1/accounts/transfer
+Content-Type: application/json
+Authorization: Basic aWx5YTIwMDAwOiF1c2VSNzExMQ==
+
+{
+  "senderAccountId": 1,
+  "receiverAccountId": 2,
+  "amount": 10001
+}
+
+### Edit name
+PUT http://localhost:4111/api/v1/customer/profile
+Content-Type: application/json
+Authorization: Basic aWx5YTIwMDAwOiF1c2VSNzExMQ==
+
+{
+  "name": "Ilya Ilya"
+}

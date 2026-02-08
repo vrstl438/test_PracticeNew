@@ -1,4 +1,4 @@
-package tests.iteration_2;
+package tests.iteration_2.api;
 
 import api.specs.RequestSpecs;
 import api.specs.ResponseSpecs;
@@ -38,7 +38,7 @@ public class DepositTests {
                 Endpoint.ADMIN_USER,
                 ResponseSpecs.created()
         ).post(userRequest).extract().response();
-        context.setUserTokenFromResponse(createUserResponse);
+        context.setUserToken(createUserResponse);
 
         //создаем аккаунт от имени только что созданного юзера
         accountResponse = new ValidatedCrudRequester<AccountResponse>(

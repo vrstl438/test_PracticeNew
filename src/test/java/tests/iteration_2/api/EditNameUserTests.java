@@ -1,4 +1,4 @@
-package tests.iteration_2;
+package tests.iteration_2.api;
 
 import api.specs.RequestSpecs;
 import api.specs.ResponseSpecs;
@@ -35,7 +35,7 @@ public class EditNameUserTests {
                 Endpoint.ADMIN_USER,
                 ResponseSpecs.created()
         ).post(userRequest).extract().response();
-        context.setUserTokenFromResponse(createUserResponse);
+        context.setUserToken(createUserResponse);
     }
 
     @DisplayName("Валидный формат имени")
@@ -67,7 +67,7 @@ public class EditNameUserTests {
         EditNameRequest editNameRequest = new EditNameRequest()
                 .setName(name);
 
-        //запоминаем имя до попытки изменения
+        
         ProfileInfoResponse profileBefore = new ValidatedCrudRequester<ProfileInfoResponse>(
                 RequestSpecs.userAuthSpec(context.getUserToken()),
                 Endpoint.PROFILE_INFO,

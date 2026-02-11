@@ -17,7 +17,7 @@ public class AccountResponse implements ResponseModel {
     private List <Transaction> transactions;
 
     @Data
-    public static class Transaction{
+    public static class Transaction implements ResponseModel {
         private Long id;
         private String type;
         private Double amount;

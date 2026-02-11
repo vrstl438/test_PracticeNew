@@ -1,32 +1,68 @@
-package assertions;
+package domain.model.comparison;
 
 import domain.model.Role;
 import domain.model.requests.DepositRequest;
 import domain.model.requests.EditNameRequest;
 import domain.model.requests.TransferRequest;
-import domain.model.requests.UserRequest;
-import domain.model.response.*;
 import domain.model.response.AccountResponse.Transaction;
+import domain.model.response.DepositResponse;
+import domain.model.response.EditUserResponse;
+import domain.model.response.TransferResponse;
+import io.restassured.http.ContentType;
+import io.restassured.response.Response;
+import org.assertj.core.api.AbstractAssert;
+import org.assertj.core.data.Offset;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class UserAssertions {
+public class ModelAssertions extends AbstractAssert<ModelAssertions, Object> {
 
-    public static void assertUserCreated(UserResponse response, UserRequest request) {
-        assertThat(response.getId() > 0);
-        assertThat(response.getUsername()).isEqualTo(request.getUsername());
-        assertThat(response.getRole()).isEqualTo(request.getRole());
-        assertThat(response.getPassword()).isNotEqualTo(request.getPassword());
-        assertThat(response.getName()).isNull();
+    private static final String CONFIG_FILE = "model-comparison.properties";
+    private static final ModelComparisonConfigLoader configLoader = new ModelComparisonConfigLoader(CONFIG_FILE);
+
+    private final Object request;
+    private final Object response;
+
+    private ModelAssertions(Object request, Object response) {
+        super(request, ModelAssertions.class);
+        this.request = request;
+        this.response = response;
     }
 
-    public static void assertAccountCreated(AccountResponse response) {
-        assertThat(response.getId()).isNotNull().isPositive();
-        assertThat(response.getAccountNumber()).isNotNull().hasSizeGreaterThanOrEqualTo(3);
-        assertThat(response.getBalance()).isNotNull().isZero();
-        assertThat(response.getTransactions()).isNotNull().isEmpty();
+    public static ModelAssertions assertThatModels(Object request, Object response) {
+        return new ModelAssertions(request, response);
+    }
+
+    public ModelAssertions match() {
+        ModelComparisonConfigLoader.ComparisonRule rule = configLoader.getRuleFor(request.getClass());
+
+        if (rule == null) {
+            failWithMessage("No comparison rule found for class %s in %s",
+                    request.getClass().getSimpleName(), CONFIG_FILE);
+            return this;
+        }
+
+        ModelComparator.ComparisonResult result = ModelComparator.compareFields(
+                request,
+                response,
+                rule.getFieldMappings()
+        );
+
+        if (!result.isSuccess()) {
+            failWithMessage("Model comparison failed for %s:\n%s",
+                    request.getClass().getSimpleName(), result);
+        }
+
+        return this;
+    }
+
+    public ModelAssertions responseIsNotNull() {
+        if (response == null) {
+            failWithMessage("Expected response to be not null");
+        }
+        return this;
     }
 
     public static void assertDepositCreated(DepositResponse response, DepositRequest request) {
@@ -34,7 +70,6 @@ public class UserAssertions {
         assertThat(response.getAccountNumber()).isNotNull().hasSizeGreaterThanOrEqualTo(3);
         assertThat(response.getBalance()).isEqualTo(request.getBalance());
 
-        //транзакции
         assertThat(response.getTransactions()).isNotNull().isNotEmpty();
 
         Transaction transaction = response.getTransactions().get(0);
@@ -71,6 +106,11 @@ public class UserAssertions {
         Double totalAmount = transactions.stream()
                 .mapToDouble(Transaction::getAmount)
                 .sum();
-        assertThat(totalAmount).isCloseTo(expectedTotalAmount, org.assertj.core.data.Offset.offset(0.01));
+        assertThat(totalAmount).isCloseTo(expectedTotalAmount, Offset.offset(0.01));
+    }
+
+    public static void assertPlainErrorMessage(Response response, String expectedMessage) {
+        assertThat(response.getContentType()).contains(ContentType.TEXT.toString());
+        assertThat(response.asString().trim()).isEqualTo(expectedMessage);
     }
 }

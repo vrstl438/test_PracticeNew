@@ -8,6 +8,9 @@ import requests.skelethon.Endpoint;
 import requests.skelethon.HttpRequest;
 import requests.skelethon.interfaces.CrudEndpointInterface;
 
+import java.util.Arrays;
+import java.util.List;
+
 import static io.restassured.RestAssured.given;
 
 public class CrudRequester extends HttpRequest implements CrudEndpointInterface {
@@ -74,14 +77,15 @@ public class CrudRequester extends HttpRequest implements CrudEndpointInterface 
                 .spec(responseSpecification);
     }
 
-    @Override
-    public ValidatableResponse get(String path) {
-        return given()
+    public <T> List<T> getList(Object... params) {
+        T[] array = (T[]) given()
                 .spec(requestSpecification)
-                .get(endpoint.getUrl() + "/" + path)
+                .get(endpoint.formatUrl(params))
                 .then()
                 .assertThat()
-                .spec(responseSpecification);
+                .spec(responseSpecification)
+                .extract().as(endpoint.getResponseModel());
+        return Arrays.asList(array);
     }
 
     @Override
@@ -92,7 +96,7 @@ public class CrudRequester extends HttpRequest implements CrudEndpointInterface 
                 .assertThat()
                 .spec(responseSpecification);
     }
-    
+
     @Override
     public ValidatableResponse delete(long id) {
         return given()

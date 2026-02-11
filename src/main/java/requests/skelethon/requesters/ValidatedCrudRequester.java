@@ -48,11 +48,6 @@ public class ValidatedCrudRequester<T extends ResponseModel> extends HttpRequest
     }
 
     @Override
-    public T get(String path) {
-        return (T) crudRequester.get(path).extract().as(endpoint.getResponseModel());
-    }
-
-    @Override
     public T update(long id, RequestModel model) {
         return (T) crudRequester.update(id, model).extract().as(endpoint.getResponseModel());
     }

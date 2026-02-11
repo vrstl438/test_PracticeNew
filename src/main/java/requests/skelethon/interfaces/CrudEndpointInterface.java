@@ -9,7 +9,6 @@ public interface CrudEndpointInterface {
     Object put(RequestModel model);
     Object get();
     Object get(long id);
-    Object get(String path);
     Object update(long id, RequestModel model);
     Object delete(long id);
 }

@@ -11,7 +11,7 @@ public class ScenarioContext {
 
     private String userToken;
 
-    public void setUserToken(Response response) {
+    public void setUserTokenFromResponse(Response response) {
         this.userToken = response.getHeader(AUTH_HEADER);
     }
 

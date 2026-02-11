@@ -1,7 +1,6 @@
 package requests.skelethon;
 
 import domain.model.RequestModel;
-import domain.model.ResponseModel;
 import domain.model.requests.*;
 import domain.model.response.*;
 import lombok.AllArgsConstructor;
@@ -51,13 +50,18 @@ public enum Endpoint {
             null,
             ProfileInfoResponse.class
     ),
+
     TRANSACTIONS_INFO(
-            "/api/v1/accounts",
+            "/api/v1/accounts/%s/transactions",
             null,
-            null
+            AccountResponse.Transaction[].class
     );
 
     private final String url;
     private final Class<? extends RequestModel> requestModel;
-    private final Class<? extends ResponseModel> responseModel;
+    private final Class<?> responseModel;
+
+    public String formatUrl(Object... params) {
+        return String.format(url, params);
+    }
 }

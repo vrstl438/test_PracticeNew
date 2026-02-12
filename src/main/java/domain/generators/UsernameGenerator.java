@@ -3,7 +3,7 @@ package domain.generators;
 public class UsernameGenerator extends BaseFaker{
 
     public static String validUsername(){
-        return FAKER.regexify("[A-Za-z]{3,18}");
+        return FAKER.regexify("[A-Za-z]{4,15}");
     }
 
     public static String shortUsername(){

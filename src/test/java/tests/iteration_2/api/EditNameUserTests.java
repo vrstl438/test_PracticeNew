@@ -2,11 +2,10 @@ package tests.iteration_2.api;
 
 import api.specs.RequestSpecs;
 import api.specs.ResponseSpecs;
-import assertions.UserAssertions;
-import assertions.UserErrorAssertions;
 import context.ScenarioContext;
 import domain.builders.CreateUserRequestBuilder;
 import domain.generators.NameGenerator;
+import domain.model.comparison.ModelAssertions;
 import domain.model.requests.EditNameRequest;
 import domain.model.requests.UserRequest;
 import domain.model.response.EditUserResponse;
@@ -35,7 +34,7 @@ public class EditNameUserTests {
                 Endpoint.ADMIN_USER,
                 ResponseSpecs.created()
         ).post(userRequest).extract().response();
-        context.setUserToken(createUserResponse);
+        context.setUserTokenFromResponse(createUserResponse);
     }
 
     @DisplayName("Валидный формат имени")
@@ -50,7 +49,7 @@ public class EditNameUserTests {
                 ResponseSpecs.ok()
         ).put(editNameRequest);
 
-        UserAssertions.assertEditUserResponse(editingResponse, editNameRequest);
+        ModelAssertions.assertEditUserResponse(editingResponse, editNameRequest);
 
         //проверка что имя поменялось
         ProfileInfoResponse profileInfo = new ValidatedCrudRequester<ProfileInfoResponse>(
@@ -67,7 +66,7 @@ public class EditNameUserTests {
         EditNameRequest editNameRequest = new EditNameRequest()
                 .setName(name);
 
-        
+        //запоминаем имя до попытки изменения
         ProfileInfoResponse profileBefore = new ValidatedCrudRequester<ProfileInfoResponse>(
                 RequestSpecs.userAuthSpec(context.getUserToken()),
                 Endpoint.PROFILE_INFO,
@@ -80,7 +79,7 @@ public class EditNameUserTests {
                 ResponseSpecs.badRequest()
         ).put(editNameRequest).extract().response();
 
-        UserErrorAssertions.assertPlainErrorMessage(response, "Name must contain two words with letters only");
+        ModelAssertions.assertPlainErrorMessage(response, ResponseSpecs.INVALID_NAME_FORMAT);
 
         //проверка что имя не поменялось
         ProfileInfoResponse profileAfter = new ValidatedCrudRequester<ProfileInfoResponse>(

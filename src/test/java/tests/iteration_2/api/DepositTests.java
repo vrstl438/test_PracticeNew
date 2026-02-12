@@ -2,11 +2,10 @@ package tests.iteration_2.api;
 
 import api.specs.RequestSpecs;
 import api.specs.ResponseSpecs;
-import assertions.UserAssertions;
-import assertions.UserErrorAssertions;
 import context.ScenarioContext;
 import domain.builders.CreateDepositRequestBuilder;
 import domain.builders.CreateUserRequestBuilder;
+import domain.model.comparison.ModelAssertions;
 import domain.model.requests.DepositRequest;
 import domain.model.requests.UserRequest;
 import domain.model.response.AccountResponse;
@@ -38,7 +37,7 @@ public class DepositTests {
                 Endpoint.ADMIN_USER,
                 ResponseSpecs.created()
         ).post(userRequest).extract().response();
-        context.setUserToken(createUserResponse);
+        context.setUserTokenFromResponse(createUserResponse);
 
         //создаем аккаунт от имени только что созданного юзера
         accountResponse = new ValidatedCrudRequester<AccountResponse>(
@@ -62,16 +61,16 @@ public class DepositTests {
                 ResponseSpecs.ok()
         ).post(depositRequest);
         //проверка депозита
-        UserAssertions.assertDepositCreated(depositResponse, depositRequest);
+        ModelAssertions.assertDepositCreated(depositResponse, depositRequest);
 
         //проверка транзакций через гет
         List<Transaction> transactions = new CrudRequester(
                 RequestSpecs.userAuthSpec(context.getUserToken()),
                 Endpoint.TRANSACTIONS_INFO,
                 ResponseSpecs.ok()
-        ).get(accountResponse.getId() + "/transactions").extract().jsonPath().getList("", Transaction.class);
+        ).getList(accountResponse.getId());
 
-        UserAssertions.assertTransactions(transactions, 1, amountDeposit);
+        ModelAssertions.assertTransactions(transactions, 1, amountDeposit);
     }
 
 
@@ -89,16 +88,16 @@ public class DepositTests {
                 Endpoint.DEPOSIT,
                 ResponseSpecs.badRequest()
         ).post(depositRequest).extract().response();
-        UserErrorAssertions.assertPlainErrorMessage(response, "Deposit amount must be at least 0.01");
+        ModelAssertions.assertPlainErrorMessage(response, ResponseSpecs.DEPOSIT_MIN_AMOUNT);
 
         //проверка что транзакция не создалась
         List<Transaction> transactions = new CrudRequester(
                 RequestSpecs.userAuthSpec(context.getUserToken()),
                 Endpoint.TRANSACTIONS_INFO,
                 ResponseSpecs.ok()
-        ).get(accountResponse.getId() + "/transactions").extract().jsonPath().getList("", Transaction.class);
+        ).getList(accountResponse.getId());
 
-        UserAssertions.assertTransactions(transactions, 0, 0.0);
+        ModelAssertions.assertTransactions(transactions, 0, 0.0);
     }
 
     @DisplayName("Попытка депозита с суммой превышающей допустимую сумму")
@@ -114,16 +113,16 @@ public class DepositTests {
                 Endpoint.DEPOSIT,
                 ResponseSpecs.badRequest()
         ).post(depositRequest).extract().response();
-        UserErrorAssertions.assertPlainErrorMessage(response, "Deposit amount cannot exceed 5000");
+        ModelAssertions.assertPlainErrorMessage(response, ResponseSpecs.DEPOSIT_MAX_AMOUNT);
 
         //проверка что транзакция не создалась
         List<Transaction> transactions = new CrudRequester(
                 RequestSpecs.userAuthSpec(context.getUserToken()),
                 Endpoint.TRANSACTIONS_INFO,
                 ResponseSpecs.ok()
-        ).get(accountResponse.getId() + "/transactions").extract().jsonPath().getList("", Transaction.class);
+        ).getList(accountResponse.getId());
 
-        UserAssertions.assertTransactions(transactions, 0, 0.0);
+        ModelAssertions.assertTransactions(transactions, 0, 0.0);
     }
 
     @DisplayName("Проверка расчета баланса, при сразу нескольких депозитах")
@@ -156,8 +155,8 @@ public class DepositTests {
                 RequestSpecs.userAuthSpec(context.getUserToken()),
                 Endpoint.TRANSACTIONS_INFO,
                 ResponseSpecs.ok()
-        ).get(accountResponse.getId() + "/transactions").extract().jsonPath().getList("", Transaction.class);
+        ).getList(accountResponse.getId());
 
-        UserAssertions.assertTransactions(transactions, 2, totalAmountBalance);
+        ModelAssertions.assertTransactions(transactions, 2, totalAmountBalance);
     }
 }

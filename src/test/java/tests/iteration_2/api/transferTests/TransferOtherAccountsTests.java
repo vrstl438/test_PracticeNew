@@ -2,12 +2,11 @@ package tests.iteration_2.api.transferTests;
 
 import api.specs.RequestSpecs;
 import api.specs.ResponseSpecs;
-import assertions.UserAssertions;
-import assertions.UserErrorAssertions;
 import context.ScenarioContext;
 import domain.builders.CreateDepositRequestBuilder;
 import domain.builders.CreateTransferRequestBuilder;
 import domain.builders.CreateUserRequestBuilder;
+import domain.model.comparison.ModelAssertions;
 import domain.model.requests.DepositRequest;
 import domain.model.requests.TransferRequest;
 import domain.model.requests.UserRequest;
@@ -52,8 +51,8 @@ public class TransferOtherAccountsTests {
         );
         Response senderUserResponse = adminRequester.post(senderUserRequest).extract().response();
         Response receiverUserResponse = adminRequester.post(receiverUserRequest).extract().response();
-        senderContext.setUserToken(senderUserResponse);
-        receiverContext.setUserToken(receiverUserResponse);
+        senderContext.setUserTokenFromResponse(senderUserResponse);
+        receiverContext.setUserTokenFromResponse(receiverUserResponse);
 
         //создание аккаунтов
         senderAccount = new ValidatedCrudRequester<AccountResponse>(
@@ -93,23 +92,23 @@ public class TransferOtherAccountsTests {
                 ResponseSpecs.ok()
         ).post(transferRequest);
 
-        UserAssertions.assertTransferCreated(transferResponse, transferRequest);
+        ModelAssertions.assertTransferCreated(transferResponse, transferRequest);
 
         //проверка транзакций на отправителе
         List<Transaction> senderTransactions = new CrudRequester(
                 RequestSpecs.userAuthSpec(senderContext.getUserToken()),
                 Endpoint.TRANSACTIONS_INFO,
                 ResponseSpecs.ok()
-        ).get(senderAccount.getId() + "/transactions").extract().jsonPath().getList("", Transaction.class);
-        UserAssertions.assertTransactions(senderTransactions, INITIAL_DEPOSIT_COUNT + 1, INITIAL_BALANCE + amount);
+        ).getList(senderAccount.getId());
+        ModelAssertions.assertTransactions(senderTransactions, INITIAL_DEPOSIT_COUNT + 1, INITIAL_BALANCE + amount);
 
         //проверка транзакций на получателе
         List<Transaction> receiverTransactions = new CrudRequester(
                 RequestSpecs.userAuthSpec(receiverContext.getUserToken()),
                 Endpoint.TRANSACTIONS_INFO,
                 ResponseSpecs.ok()
-        ).get(receiverAccount.getId() + "/transactions").extract().jsonPath().getList("", Transaction.class);
-        UserAssertions.assertTransactions(receiverTransactions, 1, amount);
+        ).getList(receiverAccount.getId());
+        ModelAssertions.assertTransactions(receiverTransactions, 1, amount);
     }
 
     @DisplayName("Попытка перевода на чужой акк суммы (отрицательной и нулевой суммы)")
@@ -128,23 +127,23 @@ public class TransferOtherAccountsTests {
                 ResponseSpecs.badRequest()
         ).post(transferRequest).extract().response();
 
-        UserErrorAssertions.assertPlainErrorMessage(transferResponse, "Transfer amount must be at least 0.01");
+        ModelAssertions.assertPlainErrorMessage(transferResponse, ResponseSpecs.TRANSFER_MIN_AMOUNT);
 
         //проверка что трансфер не прошел
         List<Transaction> senderTransactions = new CrudRequester(
                 RequestSpecs.userAuthSpec(senderContext.getUserToken()),
                 Endpoint.TRANSACTIONS_INFO,
                 ResponseSpecs.ok()
-        ).get(senderAccount.getId() + "/transactions").extract().jsonPath().getList("", Transaction.class);
-        UserAssertions.assertTransactions(senderTransactions, INITIAL_DEPOSIT_COUNT, INITIAL_BALANCE);
+        ).getList(senderAccount.getId());
+        ModelAssertions.assertTransactions(senderTransactions, INITIAL_DEPOSIT_COUNT, INITIAL_BALANCE);
 
         //получатель пустой
         List<Transaction> receiverTransactions = new CrudRequester(
                 RequestSpecs.userAuthSpec(receiverContext.getUserToken()),
                 Endpoint.TRANSACTIONS_INFO,
                 ResponseSpecs.ok()
-        ).get(receiverAccount.getId() + "/transactions").extract().jsonPath().getList("", Transaction.class);
-        UserAssertions.assertTransactions(receiverTransactions, 0, 0.0);
+        ).getList(receiverAccount.getId());
+        ModelAssertions.assertTransactions(receiverTransactions, 0, 0.0);
     }
 
     @DisplayName("Попытка перевода на чужой акк суммы (> 10000)")
@@ -163,22 +162,22 @@ public class TransferOtherAccountsTests {
                 ResponseSpecs.badRequest()
         ).post(transferRequest).extract().response();
 
-        UserErrorAssertions.assertPlainErrorMessage(transferResponse, "Transfer amount cannot exceed 10000");
+        ModelAssertions.assertPlainErrorMessage(transferResponse, ResponseSpecs.TRANSFER_MAX_AMOUNT);
 
         //проверка что трансфер не создался
         List<Transaction> senderTransactions = new CrudRequester(
                 RequestSpecs.userAuthSpec(senderContext.getUserToken()),
                 Endpoint.TRANSACTIONS_INFO,
                 ResponseSpecs.ok()
-        ).get(senderAccount.getId() + "/transactions").extract().jsonPath().getList("", Transaction.class);
-        UserAssertions.assertTransactions(senderTransactions, INITIAL_DEPOSIT_COUNT, INITIAL_BALANCE);
+        ).getList(senderAccount.getId());
+        ModelAssertions.assertTransactions(senderTransactions, INITIAL_DEPOSIT_COUNT, INITIAL_BALANCE);
 
         //получатель пустой
         List<Transaction> receiverTransactions = new CrudRequester(
                 RequestSpecs.userAuthSpec(receiverContext.getUserToken()),
                 Endpoint.TRANSACTIONS_INFO,
                 ResponseSpecs.ok()
-        ).get(receiverAccount.getId() + "/transactions").extract().jsonPath().getList("", Transaction.class);
-        UserAssertions.assertTransactions(receiverTransactions, 0, 0.0);
+        ).getList(receiverAccount.getId());
+        ModelAssertions.assertTransactions(receiverTransactions, 0, 0.0);
     }
 }

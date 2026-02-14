@@ -1,4 +1,4 @@
-package tests.iteration_2;
+package tests.iteration_2.api;
 
 import api.specs.RequestSpecs;
 import api.specs.ResponseSpecs;

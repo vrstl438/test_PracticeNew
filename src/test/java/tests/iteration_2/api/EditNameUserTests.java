@@ -2,14 +2,14 @@ package tests.iteration_2.api;
 
 import api.specs.RequestSpecs;
 import api.specs.ResponseSpecs;
-import context.ScenarioContext;
-import domain.builders.CreateUserRequestBuilder;
-import domain.generators.NameGenerator;
-import domain.model.comparison.ModelAssertions;
-import domain.model.requests.EditNameRequest;
-import domain.model.requests.UserRequest;
-import domain.model.response.EditUserResponse;
-import domain.model.response.ProfileInfoResponse;
+import api.context.ScenarioContext;
+import api.domain.builders.CreateUserRequestBuilder;
+import api.domain.generators.NameGenerator;
+import api.domain.model.comparison.ModelAssertions;
+import api.domain.model.requests.EditNameRequest;
+import api.domain.model.requests.UserRequest;
+import api.domain.model.response.EditUserResponse;
+import api.domain.model.response.ProfileInfoResponse;
 import io.restassured.response.Response;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -17,9 +17,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
-import requests.skelethon.Endpoint;
-import requests.skelethon.requesters.CrudRequester;
-import requests.skelethon.requesters.ValidatedCrudRequester;
+import api.skelethon.Endpoint;
+import api.skelethon.requesters.CrudRequester;
+import api.skelethon.requesters.ValidatedCrudRequester;
 
 import java.util.stream.Stream;
 

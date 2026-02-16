@@ -1,6 +1,6 @@
 package api.specs;
 
-import config.TestConfig;
+import api.config.TestConfig;
 import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.filter.log.LogDetail;
 import io.restassured.http.ContentType;

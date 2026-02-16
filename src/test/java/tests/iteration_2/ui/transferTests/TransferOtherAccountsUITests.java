@@ -2,41 +2,39 @@ package tests.iteration_2.ui.transferTests;
 
 import api.specs.RequestSpecs;
 import api.specs.ResponseSpecs;
-import com.codeborne.selenide.Configuration;
-import com.codeborne.selenide.Selenide;
-import context.ScenarioContext;
-import domain.builders.CreateDepositRequestBuilder;
-import domain.builders.CreateUserRequestBuilder;
-import domain.model.comparison.ModelAssertions;
-import domain.model.requests.DepositRequest;
-import domain.model.requests.UserRequest;
-import domain.model.response.AccountResponse;
-import domain.model.response.AccountResponse.Transaction;
-import domain.model.response.DepositResponse;
+import api.context.ScenarioContext;
+import api.domain.builders.CreateDepositRequestBuilder;
+import api.domain.builders.CreateUserRequestBuilder;
+import api.domain.model.comparison.ModelAssertions;
+import api.domain.model.requests.DepositRequest;
+import api.domain.model.requests.UserRequest;
+import api.domain.model.response.AccountResponse;
+import api.domain.model.response.AccountResponse.Transaction;
+import api.domain.model.response.DepositResponse;
 import io.restassured.response.Response;
 
 import java.util.List;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import requests.skelethon.Endpoint;
-import requests.skelethon.requesters.CrudRequester;
-import requests.skelethon.requesters.ValidatedCrudRequester;
+import api.skelethon.Endpoint;
+import api.skelethon.requesters.CrudRequester;
+import api.skelethon.requesters.ValidatedCrudRequester;
+import ui.actions.UserActions;
+import ui.pages.TransferPage;
 
-import java.util.Map;
+import static api.utils.TestUtils.repeat;
+import static ui.actions.Pages.DASHBOARD;
+import static ui.alert.TransferAlerts.PLEASE_FILL_ALL_FIELDS_AND_CONFIRM;
+import static ui.alert.TransferAlerts.SUCCESSFULLY_TRANSFER;
+import static ui.alert.TransferAlerts.TRANSFER_MIN_AMOUNT;
+import static ui.alert.TransferAlerts.TRANSFER_MAX_AMOUNT;
 
-import static com.codeborne.selenide.CollectionCondition.sizeGreaterThan;
-import static com.codeborne.selenide.Condition.*;
-import static com.codeborne.selenide.Selectors.byAttribute;
-import static com.codeborne.selenide.Selectors.byText;
-import static com.codeborne.selenide.Selenide.*;
-import static com.codeborne.selenide.Selenide.switchTo;
-import static utils.TestUtils.repeat;
+import tests.iteration_2.ui.BaseUITest;
 
-public class TransferOtherAccountsUITests {
+public class TransferOtherAccountsUITests extends BaseUITest {
 
     private static final int INITIAL_DEPOSIT_COUNT = 3;
     private static final double DEPOSIT_AMOUNT = 5000.0;
@@ -46,17 +44,6 @@ public class TransferOtherAccountsUITests {
     private ScenarioContext receiverContext = new ScenarioContext();
     private AccountResponse senderAccount;
     private AccountResponse receiverAccount;
-
-    @BeforeAll
-    public static void setupSelenoid() {
-        Configuration.remote = "http://localhost:4444/wd/hub";
-        Configuration.baseUrl = "http://192.168.0.27:3000";
-        Configuration.browser = "chrome";
-        Configuration.browserSize = "1920x1080";
-
-        Configuration.browserCapabilities.setCapability("selenoid:options",
-                Map.of("enableVNC", true, "enableLog", true));
-    }
 
     @BeforeEach
     void preSet() {
@@ -99,37 +86,17 @@ public class TransferOtherAccountsUITests {
         repeat(INITIAL_DEPOSIT_COUNT, () -> depositRequester.post(depositRequest));
 
         // захожу под отправителем
-        Selenide.open("/");
-        executeJavaScript("localStorage.setItem('authToken', arguments[0]);", senderContext.getUserToken());
-        Selenide.open("/dashboard");
+        UserActions.openPageAsCreatedUser(DASHBOARD, senderContext.getUserToken());
     }
 
     @DisplayName("Перевод на чужой аккаунт (валидная сумма)")
     @ParameterizedTest @ValueSource(strings = {"1000", "1"})
     void validTransferToOtherAccount(String amount) {
-        //2. Заходим в раздел "Трансфер"
-        $(byText("\uD83D\uDD04 Make a Transfer")).click();
-
-        //3. Ожидаем загрузки аккаунтов в дропдаун и выбираем отправителя
-        $$(".account-selector option").shouldHave(sizeGreaterThan(1));
-        $(".account-selector").selectOption(1);
-
-        //4. Вводим номер аккаунта получателя
-        $(byAttribute("placeholder", "Enter recipient account number")).setValue(receiverAccount.getAccountNumber());
-
-        //5. Вводим сумму трансфера
-        $(byAttribute("placeholder", "Enter amount")).setValue(amount);
-
-        //6. Ставим чекбокс подтверждения
-        $("#confirmCheck").click();
-
-        //7. Нажимаем на кнопку "Send Transfer"
-        $(byText("\uD83D\uDE80 Send Transfer")).click();
-
-        //8. Проверяем аллерт
-        String alert = switchTo().alert().getText();
-        assert alert.contains("Successfully transferred");
-        switchTo().alert().accept();
+        new TransferPage().open().createTransfer(
+                senderAccount.getAccountNumber(),
+                receiverAccount.getAccountNumber(),
+                amount
+        ).checkAlertMessageAndAccept(SUCCESSFULLY_TRANSFER.getMessage());
 
         //9. Проверяем api — транзакции на отправителе
         List<Transaction> senderTransactions = new CrudRequester(
@@ -151,28 +118,11 @@ public class TransferOtherAccountsUITests {
     @DisplayName("Попытка перевода на чужой аккаунт без подтверждения чекбоксом")
     @Test
     void transferWithoutConfirmation() {
-        //2. Заходим в раздел "Трансфер"
-        $(byText("\uD83D\uDD04 Make a Transfer")).click();
-
-        //3. Ожидаем загрузки аккаунтов и выбираем отправителя
-        $$(".account-selector option").shouldHave(sizeGreaterThan(1));
-        $(".account-selector").selectOption(1);
-
-        //4. Вводим номер аккаунта получателя
-        $(byAttribute("placeholder", "Enter recipient account number")).setValue(receiverAccount.getAccountNumber());
-
-        //5. Вводим сумму трансфера
-        $(byAttribute("placeholder", "Enter amount")).setValue("1000");
-
-        //6. НЕ ставим чекбокс подтверждения
-
-        //7. Нажимаем на кнопку "Send Transfer"
-        $(byText("\uD83D\uDE80 Send Transfer")).click();
-
-        //8. Проверяем аллерт
-        String alert = switchTo().alert().getText();
-        assert alert.contains("Please fill all fields and confirm.");
-        switchTo().alert().accept();
+        new TransferPage().open().createTransferWithoutConfirmation(
+                senderAccount.getAccountNumber(),
+                receiverAccount.getAccountNumber(),
+                "1000"
+        ).checkAlertMessageAndAccept(PLEASE_FILL_ALL_FIELDS_AND_CONFIRM.getMessage());
 
         //9. Проверяем api что трансфер не прошел
         List<Transaction> senderTransactions = new CrudRequester(
@@ -194,19 +144,8 @@ public class TransferOtherAccountsUITests {
     @DisplayName("Попытка перевода на чужой аккаунт без заполнения полей")
     @Test
     void transferWithoutFillingFields() {
-        //2. Заходим в раздел "Трансфер"
-        $(byText("\uD83D\uDD04 Make a Transfer")).click();
-
-        //3. Ставим чекбокс подтверждения но ничего не заполняем
-        $("#confirmCheck").click();
-
-        //4. Нажимаем на кнопку "Send Transfer"
-        $(byText("\uD83D\uDE80 Send Transfer")).click();
-
-        //5. Проверяем аллерт
-        String alert = switchTo().alert().getText();
-        assert alert.contains("Please fill all fields and confirm.");
-        switchTo().alert().accept();
+        new TransferPage().open().submitOnlyWithConfirmation()
+                .checkAlertMessageAndAccept(PLEASE_FILL_ALL_FIELDS_AND_CONFIRM.getMessage());
 
         //6. Проверяем api что трансфер не создался
         List<Transaction> senderTransactions = new CrudRequester(
@@ -220,29 +159,11 @@ public class TransferOtherAccountsUITests {
     @DisplayName("Перевод на чужой аккаунт с суммой меньше минимальной")
     @ParameterizedTest @ValueSource(strings = {"-1", "0", "0.001"})
     void transferBelowMinAmount(String amount) {
-        //2. Заходим в раздел "Трансфер"
-        $(byText("\uD83D\uDD04 Make a Transfer")).click();
-
-        //3. Ожидаем загрузки аккаунтов и выбираем отправителя
-        $$(".account-selector option").shouldHave(sizeGreaterThan(1));
-        $(".account-selector").selectOption(1);
-
-        //4. Вводим номер аккаунта получателя
-        $(byAttribute("placeholder", "Enter recipient account number")).setValue(receiverAccount.getAccountNumber());
-
-        //5. Вводим невалидную сумму (меньше минимума)
-        $(byAttribute("placeholder", "Enter amount")).setValue(amount);
-
-        //6. Ставим чекбокс подтверждения
-        $("#confirmCheck").click();
-
-        //7. Нажимаем на кнопку "Send Transfer"
-        $(byText("\uD83D\uDE80 Send Transfer")).click();
-
-        //8. Проверяем аллерт
-        String alert = switchTo().alert().getText();
-        assert alert.contains("Transfer amount must be at least 0.01");
-        switchTo().alert().accept();
+        new TransferPage().open().createTransfer(
+                senderAccount.getAccountNumber(),
+                receiverAccount.getAccountNumber(),
+                amount
+        ).checkAlertMessageAndAccept(TRANSFER_MIN_AMOUNT.getMessage());
 
         //9. Проверяем api что трансфер не создался
         List<Transaction> senderTransactions = new CrudRequester(
@@ -256,29 +177,11 @@ public class TransferOtherAccountsUITests {
     @DisplayName("Перевод на чужой аккаунт с суммой больше максимальной")
     @ParameterizedTest @ValueSource(strings = {"10001", "50000"})
     void transferAboveMaxAmount(String amount) {
-        //2. Заходим в раздел "Трансфер"
-        $(byText("\uD83D\uDD04 Make a Transfer")).click();
-
-        //3. Ожидаем загрузки аккаунтов и выбираем отправителя
-        $$(".account-selector option").shouldHave(sizeGreaterThan(1));
-        $(".account-selector").selectOption(1);
-
-        //4. Вводим номер аккаунта получателя
-        $(byAttribute("placeholder", "Enter recipient account number")).setValue(receiverAccount.getAccountNumber());
-
-        //5. Вводим сумму больше максимальной
-        $(byAttribute("placeholder", "Enter amount")).setValue(amount);
-
-        //6. Ставим чекбокс подтверждения
-        $("#confirmCheck").click();
-
-        //7. Нажимаем на кнопку "Send Transfer"
-        $(byText("\uD83D\uDE80 Send Transfer")).click();
-
-        //8. Проверяем аллерт
-        String alert = switchTo().alert().getText();
-        assert alert.contains("Transfer amount cannot exceed 10000");
-        switchTo().alert().accept();
+        new TransferPage().open().createTransfer(
+                senderAccount.getAccountNumber(),
+                receiverAccount.getAccountNumber(),
+                amount
+        ).checkAlertMessageAndAccept(TRANSFER_MAX_AMOUNT.getMessage());
 
         //9. Проверяем api что трансфер не создался
         List<Transaction> senderTransactions = new CrudRequester(

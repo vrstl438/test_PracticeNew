@@ -2,48 +2,36 @@ package tests.iteration_2.ui;
 
 import api.specs.RequestSpecs;
 import api.specs.ResponseSpecs;
-import com.codeborne.selenide.Configuration;
-import com.codeborne.selenide.Selenide;
-import context.ScenarioContext;
-import domain.builders.CreateUserRequestBuilder;
-import domain.model.requests.UserRequest;
-import domain.model.response.ProfileInfoResponse;
+import api.context.ScenarioContext;
+import api.domain.builders.CreateUserRequestBuilder;
+import api.domain.model.requests.UserRequest;
+import api.domain.model.response.ProfileInfoResponse;
 import io.restassured.response.Response;
 
-import domain.generators.NameGenerator;
-import org.junit.jupiter.api.BeforeAll;
+import api.domain.generators.NameGenerator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
-import requests.skelethon.Endpoint;
-import requests.skelethon.requesters.CrudRequester;
-import requests.skelethon.requesters.ValidatedCrudRequester;
+import api.skelethon.Endpoint;
+import api.skelethon.requesters.CrudRequester;
+import api.skelethon.requesters.ValidatedCrudRequester;
+import ui.actions.UserActions;
+import ui.pages.EditProfilePage;
 
-import java.util.Map;
 import java.util.stream.Stream;
 
 import static com.codeborne.selenide.Condition.*;
-import static com.codeborne.selenide.Selectors.byText;
-import static com.codeborne.selenide.Selenide.*;
-import static com.codeborne.selenide.Selenide.switchTo;
+import static com.codeborne.selenide.Selenide.$;
 import static org.assertj.core.api.Assertions.assertThat;
+import static ui.actions.Pages.DASHBOARD;
+import static ui.alert.EditProfileAlerts.NAME_UPDATED_SUCCESSFULLY;
+import static ui.alert.EditProfileAlerts.NAME_MUST_CONTAIN_TWO_WORDS;
 
-public class EditNameUITests {
+public class EditNameUITests extends BaseUITest {
 
     private ScenarioContext context = new ScenarioContext();
-
-    @BeforeAll
-    public static void setupSelenoid() {
-        Configuration.remote = "http://localhost:4444/wd/hub";
-        Configuration.baseUrl = "http://192.168.0.27:3000";
-        Configuration.browser = "chrome";
-        Configuration.browserSize = "1920x1080";
-
-        Configuration.browserCapabilities.setCapability("selenoid:options",
-                Map.of("enableVNC", true, "enableLog", true));
-    }
 
     @BeforeEach
     void setUp() {
@@ -58,42 +46,25 @@ public class EditNameUITests {
         context.setUserTokenFromResponse(createUserResponse);
 
         //захожу под созданным пользоватлем
-        Selenide.open("/");
-        executeJavaScript("localStorage.setItem('authToken', arguments[0]);", context.getUserToken());
-        Selenide.open("/dashboard");
+        UserActions.openPageAsCreatedUser(DASHBOARD, context.getUserToken());
     }
 
     @DisplayName("Проверка отображения раздела 'Edit Profile'")
     @Test
     void editProfilePageVisible() {
-        //2. Переходим в Edit Profile
-        Selenide.open("/edit-profile");
-
-        //3. Проверяем что мы на странице Edit Profile
-        $("input.form-control.mt-3").shouldBe(visible);
+        //2. Переходим в Edit Profile и проверяем что поле ввода видимо
+        new EditProfilePage().open().getNameInput().shouldBe(visible);
     }
 
     @DisplayName("Успешная смена имени профиля")
     @ParameterizedTest @MethodSource("validNameGenerator")
     void validEditName(String name) {
-        //2. Переходим в Edit Profile
-        Selenide.open("/edit-profile");
-        $("input.form-control.mt-3").shouldBe(visible);
-        Selenide.sleep(500);
-
-        //3. Вводим новое имя
-        $("input.form-control.mt-3").setValue(name);
-
-        //4. Нажимаем на кнопку "Save Changes"
-        $(byText("\uD83D\uDCBE Save Changes")).click();
-
-        //5. Проверяем аллерт
-        String alert = switchTo().alert().getText();
-        assert alert.contains("Name updated successfully!");
-        switchTo().alert().accept();
+        //2. Переходим в Edit Profile и вводим имя
+        EditProfilePage editProfilePage = new EditProfilePage().open();
+        editProfilePage.editName(name).checkAlertMessageAndAccept(NAME_UPDATED_SUCCESSFULLY.getMessage());
 
         //6. Возвращаемся на дашборд
-        $(byText("\uD83C\uDFE0 Home")).click();
+        editProfilePage.goHome();
 
         //7. Проверяем ui — имя отображается в заголовке
         $(".welcome-text").shouldHave(text(name));
@@ -110,21 +81,9 @@ public class EditNameUITests {
     @DisplayName("Невалидный формат имени")
     @ParameterizedTest @MethodSource("invalidNameGenerator")
     void invalidEditName(String name) {
-        //2. Переходим в Edit Profile
-        Selenide.open("/edit-profile");
-        $("input.form-control.mt-3").shouldBe(visible);
-        Selenide.sleep(500);
-
-        //3. Вводим невалидное имя
-        $("input.form-control.mt-3").setValue(name);
-
-        //4. Нажимаем на кнопку "Save Changes"
-        $(byText("\uD83D\uDCBE Save Changes")).click();
-
-        //5. Проверяем аллерт
-        String alert = switchTo().alert().getText();
-        assert alert.contains("Name must contain two words with letters only");
-        switchTo().alert().accept();
+        //2. Переходим в Edit Profile и вводим невалидное имя
+        new EditProfilePage().open().editName(name)
+                .checkAlertMessageAndAccept(NAME_MUST_CONTAIN_TWO_WORDS.getMessage());
 
         //6. Проверяем api что имя не поменялось
         ProfileInfoResponse profileInfo = new ValidatedCrudRequester<ProfileInfoResponse>(

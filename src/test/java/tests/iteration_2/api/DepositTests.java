@@ -2,15 +2,15 @@ package tests.iteration_2.api;
 
 import api.specs.RequestSpecs;
 import api.specs.ResponseSpecs;
-import context.ScenarioContext;
-import domain.builders.CreateDepositRequestBuilder;
-import domain.builders.CreateUserRequestBuilder;
-import domain.model.comparison.ModelAssertions;
-import domain.model.requests.DepositRequest;
-import domain.model.requests.UserRequest;
-import domain.model.response.AccountResponse;
-import domain.model.response.AccountResponse.Transaction;
-import domain.model.response.DepositResponse;
+import api.context.ScenarioContext;
+import api.domain.builders.CreateDepositRequestBuilder;
+import api.domain.builders.CreateUserRequestBuilder;
+import api.domain.model.comparison.ModelAssertions;
+import api.domain.model.requests.DepositRequest;
+import api.domain.model.requests.UserRequest;
+import api.domain.model.response.AccountResponse;
+import api.domain.model.response.AccountResponse.Transaction;
+import api.domain.model.response.DepositResponse;
 
 import java.util.List;
 import io.restassured.response.Response;
@@ -19,9 +19,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import requests.skelethon.Endpoint;
-import requests.skelethon.requesters.CrudRequester;
-import requests.skelethon.requesters.ValidatedCrudRequester;
+import api.skelethon.Endpoint;
+import api.skelethon.requesters.CrudRequester;
+import api.skelethon.requesters.ValidatedCrudRequester;
 
 public class DepositTests {
     private ScenarioContext context = new ScenarioContext();

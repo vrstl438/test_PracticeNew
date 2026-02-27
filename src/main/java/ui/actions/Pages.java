@@ -4,5 +4,5 @@ public enum Pages {
     DEPOSIT,
     DASHBOARD,
     TRANSFER,
-    EDIT_PROFILE
+    EDIT_PROFILE;
 }

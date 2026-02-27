@@ -2,7 +2,7 @@ package tests.iteration_2.ui.transferTests;
 
 import api.specs.RequestSpecs;
 import api.specs.ResponseSpecs;
-import api.context.ScenarioContext;
+import common.context.ScenarioContext;
 import api.domain.builders.CreateDepositRequestBuilder;
 import api.domain.builders.CreateUserRequestBuilder;
 import api.domain.model.comparison.ModelAssertions;
@@ -25,12 +25,17 @@ import api.skelethon.requesters.ValidatedCrudRequester;
 import ui.actions.UserActions;
 import ui.pages.TransferPage;
 
+import static api.specs.RequestSpecs.AUTHORIZATION_HEADER;
 import static api.utils.TestUtils.repeat;
 import static ui.actions.Pages.DASHBOARD;
 import static ui.alert.TransferAlerts.PLEASE_FILL_ALL_FIELDS_AND_CONFIRM;
 import static ui.alert.TransferAlerts.SUCCESSFULLY_TRANSFER;
 import static ui.alert.TransferAlerts.TRANSFER_MIN_AMOUNT;
 import static ui.alert.TransferAlerts.TRANSFER_MAX_AMOUNT;
+import static common.datakeys.Keys.RECEIVER_TOKEN;
+import static common.datakeys.Keys.SENDER_TOKEN;
+import static common.datakeys.ResponseKey.RECEIVER_ACCOUNT;
+import static common.datakeys.ResponseKey.SENDER_ACCOUNT;
 
 import tests.iteration_2.ui.BaseUITest;
 
@@ -40,10 +45,7 @@ public class TransferOtherAccountsUITests extends BaseUITest {
     private static final double DEPOSIT_AMOUNT = 5000.0;
     private static final double INITIAL_BALANCE = INITIAL_DEPOSIT_COUNT * DEPOSIT_AMOUNT;
 
-    private ScenarioContext senderContext = new ScenarioContext();
-    private ScenarioContext receiverContext = new ScenarioContext();
-    private AccountResponse senderAccount;
-    private AccountResponse receiverAccount;
+    private ScenarioContext context = new ScenarioContext();
 
     @BeforeEach
     void preSet() {
@@ -58,60 +60,62 @@ public class TransferOtherAccountsUITests extends BaseUITest {
         );
         Response senderUserResponse = adminRequester.post(senderUserRequest).extract().response();
         Response receiverUserResponse = adminRequester.post(receiverUserRequest).extract().response();
-        senderContext.setUserTokenFromResponse(senderUserResponse);
-        receiverContext.setUserTokenFromResponse(receiverUserResponse);
+        context.saveData(SENDER_TOKEN, senderUserResponse.getHeader(AUTHORIZATION_HEADER));
+        context.saveData(RECEIVER_TOKEN, receiverUserResponse.getHeader(AUTHORIZATION_HEADER));
 
         //создание аккаунтов
-        senderAccount = new ValidatedCrudRequester<AccountResponse>(
-                RequestSpecs.userAuthSpec(senderContext.getUserToken()),
+        AccountResponse senderAccount = new ValidatedCrudRequester<AccountResponse>(
+                RequestSpecs.userAuthSpec(context.getData(SENDER_TOKEN, String.class)),
                 Endpoint.ACCOUNTS,
                 ResponseSpecs.created()
         ).post();
-        receiverAccount = new ValidatedCrudRequester<AccountResponse>(
-                RequestSpecs.userAuthSpec(receiverContext.getUserToken()),
+        AccountResponse receiverAccount = new ValidatedCrudRequester<AccountResponse>(
+                RequestSpecs.userAuthSpec(context.getData(RECEIVER_TOKEN, String.class)),
                 Endpoint.ACCOUNTS,
                 ResponseSpecs.created()
         ).post();
+        context.saveData(SENDER_ACCOUNT, senderAccount);
+        context.saveData(RECEIVER_ACCOUNT, receiverAccount);
 
         //начальные депозиты на аккаунт отправителя
         DepositRequest depositRequest = new CreateDepositRequestBuilder()
-                .withId(senderAccount.getId())
+                .withId(context.getData(SENDER_ACCOUNT, AccountResponse.class).getId())
                 .withBalance(DEPOSIT_AMOUNT)
                 .depositBuild();
         ValidatedCrudRequester<DepositResponse> depositRequester = new ValidatedCrudRequester<>(
-                RequestSpecs.userAuthSpec(senderContext.getUserToken()),
+                RequestSpecs.userAuthSpec(context.getData(SENDER_TOKEN, String.class)),
                 Endpoint.DEPOSIT,
                 ResponseSpecs.ok()
         );
         repeat(INITIAL_DEPOSIT_COUNT, () -> depositRequester.post(depositRequest));
 
         // захожу под отправителем
-        UserActions.openPageAsCreatedUser(DASHBOARD, senderContext.getUserToken());
+        UserActions.openPageAsCreatedUser(DASHBOARD, context.getData(SENDER_TOKEN, String.class));
     }
 
     @DisplayName("Перевод на чужой аккаунт (валидная сумма)")
     @ParameterizedTest @ValueSource(strings = {"1000", "1"})
     void validTransferToOtherAccount(String amount) {
         new TransferPage().open().createTransfer(
-                senderAccount.getAccountNumber(),
-                receiverAccount.getAccountNumber(),
+                context.getData(SENDER_ACCOUNT, AccountResponse.class).getAccountNumber(),
+                context.getData(RECEIVER_ACCOUNT, AccountResponse.class).getAccountNumber(),
                 amount
         ).checkAlertMessageAndAccept(SUCCESSFULLY_TRANSFER.getMessage());
 
         //9. Проверяем api — транзакции на отправителе
         List<Transaction> senderTransactions = new CrudRequester(
-                RequestSpecs.userAuthSpec(senderContext.getUserToken()),
+                RequestSpecs.userAuthSpec(context.getData(SENDER_TOKEN, String.class)),
                 Endpoint.TRANSACTIONS_INFO,
                 ResponseSpecs.ok()
-        ).getList(senderAccount.getId());
+        ).getList(context.getData(SENDER_ACCOUNT, AccountResponse.class).getId());
         ModelAssertions.assertTransactions(senderTransactions, INITIAL_DEPOSIT_COUNT + 1, INITIAL_BALANCE + Double.parseDouble(amount));
 
         //10. Проверяем api — транзакции на получателе
         List<Transaction> receiverTransactions = new CrudRequester(
-                RequestSpecs.userAuthSpec(receiverContext.getUserToken()),
+                RequestSpecs.userAuthSpec(context.getData(RECEIVER_TOKEN, String.class)),
                 Endpoint.TRANSACTIONS_INFO,
                 ResponseSpecs.ok()
-        ).getList(receiverAccount.getId());
+        ).getList(context.getData(RECEIVER_ACCOUNT, AccountResponse.class).getId());
         ModelAssertions.assertTransactions(receiverTransactions, 1, Double.parseDouble(amount));
     }
 
@@ -119,25 +123,25 @@ public class TransferOtherAccountsUITests extends BaseUITest {
     @Test
     void transferWithoutConfirmation() {
         new TransferPage().open().createTransferWithoutConfirmation(
-                senderAccount.getAccountNumber(),
-                receiverAccount.getAccountNumber(),
+                context.getData(SENDER_ACCOUNT, AccountResponse.class).getAccountNumber(),
+                context.getData(RECEIVER_ACCOUNT, AccountResponse.class).getAccountNumber(),
                 "1000"
         ).checkAlertMessageAndAccept(PLEASE_FILL_ALL_FIELDS_AND_CONFIRM.getMessage());
 
         //9. Проверяем api что трансфер не прошел
         List<Transaction> senderTransactions = new CrudRequester(
-                RequestSpecs.userAuthSpec(senderContext.getUserToken()),
+                RequestSpecs.userAuthSpec(context.getData(SENDER_TOKEN, String.class)),
                 Endpoint.TRANSACTIONS_INFO,
                 ResponseSpecs.ok()
-        ).getList(senderAccount.getId());
+        ).getList(context.getData(SENDER_ACCOUNT, AccountResponse.class).getId());
         ModelAssertions.assertTransactions(senderTransactions, INITIAL_DEPOSIT_COUNT, INITIAL_BALANCE);
 
         //10. Получатель пустой
         List<Transaction> receiverTransactions = new CrudRequester(
-                RequestSpecs.userAuthSpec(receiverContext.getUserToken()),
+                RequestSpecs.userAuthSpec(context.getData(RECEIVER_TOKEN, String.class)),
                 Endpoint.TRANSACTIONS_INFO,
                 ResponseSpecs.ok()
-        ).getList(receiverAccount.getId());
+        ).getList(context.getData(RECEIVER_ACCOUNT, AccountResponse.class).getId());
         ModelAssertions.assertTransactions(receiverTransactions, 0, 0.0);
     }
 
@@ -149,10 +153,10 @@ public class TransferOtherAccountsUITests extends BaseUITest {
 
         //6. Проверяем api что трансфер не создался
         List<Transaction> senderTransactions = new CrudRequester(
-                RequestSpecs.userAuthSpec(senderContext.getUserToken()),
+                RequestSpecs.userAuthSpec(context.getData(SENDER_TOKEN, String.class)),
                 Endpoint.TRANSACTIONS_INFO,
                 ResponseSpecs.ok()
-        ).getList(senderAccount.getId());
+        ).getList(context.getData(SENDER_ACCOUNT, AccountResponse.class).getId());
         ModelAssertions.assertTransactions(senderTransactions, INITIAL_DEPOSIT_COUNT, INITIAL_BALANCE);
     }
 
@@ -160,17 +164,17 @@ public class TransferOtherAccountsUITests extends BaseUITest {
     @ParameterizedTest @ValueSource(strings = {"-1", "0", "0.001"})
     void transferBelowMinAmount(String amount) {
         new TransferPage().open().createTransfer(
-                senderAccount.getAccountNumber(),
-                receiverAccount.getAccountNumber(),
+                context.getData(SENDER_ACCOUNT, AccountResponse.class).getAccountNumber(),
+                context.getData(RECEIVER_ACCOUNT, AccountResponse.class).getAccountNumber(),
                 amount
         ).checkAlertMessageAndAccept(TRANSFER_MIN_AMOUNT.getMessage());
 
         //9. Проверяем api что трансфер не создался
         List<Transaction> senderTransactions = new CrudRequester(
-                RequestSpecs.userAuthSpec(senderContext.getUserToken()),
+                RequestSpecs.userAuthSpec(context.getData(SENDER_TOKEN, String.class)),
                 Endpoint.TRANSACTIONS_INFO,
                 ResponseSpecs.ok()
-        ).getList(senderAccount.getId());
+        ).getList(context.getData(SENDER_ACCOUNT, AccountResponse.class).getId());
         ModelAssertions.assertTransactions(senderTransactions, INITIAL_DEPOSIT_COUNT, INITIAL_BALANCE);
     }
 
@@ -178,17 +182,17 @@ public class TransferOtherAccountsUITests extends BaseUITest {
     @ParameterizedTest @ValueSource(strings = {"10001", "50000"})
     void transferAboveMaxAmount(String amount) {
         new TransferPage().open().createTransfer(
-                senderAccount.getAccountNumber(),
-                receiverAccount.getAccountNumber(),
+                context.getData(SENDER_ACCOUNT, AccountResponse.class).getAccountNumber(),
+                context.getData(RECEIVER_ACCOUNT, AccountResponse.class).getAccountNumber(),
                 amount
         ).checkAlertMessageAndAccept(TRANSFER_MAX_AMOUNT.getMessage());
 
         //9. Проверяем api что трансфер не создался
         List<Transaction> senderTransactions = new CrudRequester(
-                RequestSpecs.userAuthSpec(senderContext.getUserToken()),
+                RequestSpecs.userAuthSpec(context.getData(SENDER_TOKEN, String.class)),
                 Endpoint.TRANSACTIONS_INFO,
                 ResponseSpecs.ok()
-        ).getList(senderAccount.getId());
+        ).getList(context.getData(SENDER_ACCOUNT, AccountResponse.class).getId());
         ModelAssertions.assertTransactions(senderTransactions, INITIAL_DEPOSIT_COUNT, INITIAL_BALANCE);
     }
 }

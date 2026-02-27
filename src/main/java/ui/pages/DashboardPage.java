@@ -11,12 +11,11 @@ import static com.codeborne.selenide.Selenide.$;
 public class DashboardPage extends BasePage<DashboardPage>{
     private SelenideElement depositButton = $(byText("\uD83D\uDCB0 Deposit Money"));
     private SelenideElement transferButton = $(byText("\uD83D\uDD04 Make a Transfer"));
+    private SelenideElement welcomeText = $(".welcome-text");
 
     @Override
     public String url(){
         return "/dashboard";
     }
 
-//    public DashboardPage dashboard(){
-//    }
 }

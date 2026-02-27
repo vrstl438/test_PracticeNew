@@ -57,6 +57,12 @@ public enum Endpoint {
             "/api/v1/accounts/%s/transactions",
             null,
             AccountResponse.Transaction[].class
+    ),
+
+    DELETE_USER(
+            "/api/v1/admin/users",
+            null,
+            null
     );
 
     private final String url;

@@ -9,7 +9,9 @@ import io.restassured.specification.RequestSpecification;
 import static io.restassured.RestAssured.preemptive;
 
 public class RequestSpecs {
-//добавить базовую спецификацию
+
+    public static final String AUTHORIZATION_HEADER = "Authorization";
+
     public static RequestSpecification adminAuthSpec() {
         return new RequestSpecBuilder()
                 .setBaseUri(TestConfig.baseUrl())
@@ -32,7 +34,7 @@ public class RequestSpecs {
         return new RequestSpecBuilder()
                 .setBaseUri(TestConfig.baseUrl())
                 .setContentType(ContentType.JSON)
-                .addHeader("Authorization", token)
+                .addHeader(AUTHORIZATION_HEADER, token)
                 .log(LogDetail.ALL)
                 .build();
     }

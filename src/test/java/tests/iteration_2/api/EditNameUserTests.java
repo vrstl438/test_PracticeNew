@@ -2,14 +2,14 @@ package tests.iteration_2.api;
 
 import api.specs.RequestSpecs;
 import api.specs.ResponseSpecs;
-import context.ScenarioContext;
-import domain.builders.CreateUserRequestBuilder;
-import domain.generators.NameGenerator;
-import domain.model.comparison.ModelAssertions;
-import domain.model.requests.EditNameRequest;
-import domain.model.requests.UserRequest;
-import domain.model.response.EditUserResponse;
-import domain.model.response.ProfileInfoResponse;
+import common.context.ScenarioContext;
+import api.domain.builders.CreateUserRequestBuilder;
+import api.domain.generators.NameGenerator;
+import api.domain.model.comparison.ModelAssertions;
+import api.domain.model.requests.EditNameRequest;
+import api.domain.model.requests.UserRequest;
+import api.domain.model.response.EditUserResponse;
+import api.domain.model.response.ProfileInfoResponse;
 import io.restassured.response.Response;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -17,11 +17,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
-import requests.skelethon.Endpoint;
-import requests.skelethon.requesters.CrudRequester;
-import requests.skelethon.requesters.ValidatedCrudRequester;
+import api.skelethon.Endpoint;
+import api.skelethon.requesters.CrudRequester;
+import api.skelethon.requesters.ValidatedCrudRequester;
 
 import java.util.stream.Stream;
+
+import static common.datakeys.Keys.USER_TOKEN;
 
 public class EditNameUserTests {
     private ScenarioContext context = new ScenarioContext();
@@ -34,7 +36,7 @@ public class EditNameUserTests {
                 Endpoint.ADMIN_USER,
                 ResponseSpecs.created()
         ).post(userRequest).extract().response();
-        context.setUserTokenFromResponse(createUserResponse);
+        context.saveData(USER_TOKEN, createUserResponse.getHeader(RequestSpecs.AUTHORIZATION_HEADER));
     }
 
     @DisplayName("Валидный формат имени")
@@ -44,7 +46,7 @@ public class EditNameUserTests {
                 .setName(name);
 
         EditUserResponse editingResponse = new ValidatedCrudRequester<EditUserResponse>(
-                RequestSpecs.userAuthSpec(context.getUserToken()),
+                RequestSpecs.userAuthSpec(context.getData(USER_TOKEN, String.class)),
                 Endpoint.EDIT_PROFILE,
                 ResponseSpecs.ok()
         ).put(editNameRequest);
@@ -53,7 +55,7 @@ public class EditNameUserTests {
 
         //проверка что имя поменялось
         ProfileInfoResponse profileInfo = new ValidatedCrudRequester<ProfileInfoResponse>(
-                RequestSpecs.userAuthSpec(context.getUserToken()),
+                RequestSpecs.userAuthSpec(context.getData(USER_TOKEN, String.class)),
                 Endpoint.PROFILE_INFO,
                 ResponseSpecs.ok()
         ).get();
@@ -68,13 +70,13 @@ public class EditNameUserTests {
 
         //запоминаем имя до попытки изменения
         ProfileInfoResponse profileBefore = new ValidatedCrudRequester<ProfileInfoResponse>(
-                RequestSpecs.userAuthSpec(context.getUserToken()),
+                RequestSpecs.userAuthSpec(context.getData(USER_TOKEN, String.class)),
                 Endpoint.PROFILE_INFO,
                 ResponseSpecs.ok()
         ).get();
 
         Response response = new CrudRequester(
-                RequestSpecs.userAuthSpec(context.getUserToken()),
+                RequestSpecs.userAuthSpec(context.getData(USER_TOKEN, String.class)),
                 Endpoint.EDIT_PROFILE,
                 ResponseSpecs.badRequest()
         ).put(editNameRequest).extract().response();
@@ -83,7 +85,7 @@ public class EditNameUserTests {
 
         //проверка что имя не поменялось
         ProfileInfoResponse profileAfter = new ValidatedCrudRequester<ProfileInfoResponse>(
-                RequestSpecs.userAuthSpec(context.getUserToken()),
+                RequestSpecs.userAuthSpec(context.getData(USER_TOKEN, String.class)),
                 Endpoint.PROFILE_INFO,
                 ResponseSpecs.ok()
         ).get();

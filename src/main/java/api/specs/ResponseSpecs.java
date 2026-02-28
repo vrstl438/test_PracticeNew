@@ -26,12 +26,20 @@ public class ResponseSpecs {
     }
 
     public static ResponseSpecification expectedStatusCode(int expectedStatusCode){
-        if (expectedStatusCode >= 200 && expectedStatusCode < 300){
-            return successStatusCode(expectedStatusCode);
+        return expectedStatusCode(expectedStatusCode, true);
+    }
+
+    public static ResponseSpecification expectedStatusCode(int expectedStatusCode, boolean expectJson) {
+        if (expectedStatusCode >= 200 && expectedStatusCode < 300) {
+            return successStatusCode(expectedStatusCode, expectJson);
         } else if (expectedStatusCode >= 400) {
             return errorStatusCode(expectedStatusCode);
         }
         throw new IllegalArgumentException("not correct status code: " + expectedStatusCode);
+    }
+
+    public static ResponseSpecification okText() {
+        return expectedStatusCode(200, false);
     }
 
     //оставил метод для того, если надо быстро что-то добавить, и это применится абсолютно ко всем тестам
@@ -40,11 +48,16 @@ public class ResponseSpecs {
                 .log(LogDetail.ALL);
     }
 
-    private static ResponseSpecification successStatusCode(int expectedSuccessStatusCode){
-        return defaultSpec()
-                .expectContentType(ContentType.JSON)
-                .expectStatusCode(expectedSuccessStatusCode)
-                .build();
+    private static ResponseSpecification successStatusCode(int expectedSuccessStatusCode) {
+        return successStatusCode(expectedSuccessStatusCode, true);
+    }
+
+    private static ResponseSpecification successStatusCode(int expectedSuccessStatusCode, boolean expectJson) {
+        ResponseSpecBuilder builder = defaultSpec().expectStatusCode(expectedSuccessStatusCode);
+        if (expectJson) {
+            builder.expectContentType(ContentType.JSON);
+        }
+        return builder.build();
     }
 
     private static ResponseSpecification errorStatusCode(int expectedErrorStatusCode){
